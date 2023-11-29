@@ -7,6 +7,7 @@ const int STDBY = 9;
 const int BIN1 = 7; 
 const int BIN2 = 6;
 const int PWMB = 5;
+const int STDBY = 8;
 
 void setup() {
   pinMode(PWMA, OUTPUT);
@@ -32,7 +33,9 @@ void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM){
     digitalWrite(pin_IN1, LOW);
     digitalWrite(pin_IN2, HIGH);
   }
-  analogWrite(pin_PWM, abs(spd));
+  spd = abs(spd)
+  spd = constraint(spd, 0, 255);
+  analogWrite(pin_PWM, spd);
 }
 
 void drive(int speedL, int speedR){
