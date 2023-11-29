@@ -3,11 +3,10 @@
 const int PWMA = 11;
 const int AIN2 = 10;
 const int AIN1 = 9;
-const int STDBY = 9;
+const int STDBY = 8;
 const int BIN1 = 7; 
 const int BIN2 = 6;
 const int PWMB = 5;
-const int STDBY = 8;
 
 void setup() {
   pinMode(PWMA, OUTPUT);
