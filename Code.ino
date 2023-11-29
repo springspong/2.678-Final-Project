@@ -1,5 +1,3 @@
-// I worked alone to write this code
-
 const int PWMA = 11;
 const int AIN2 = 10;
 const int AIN1 = 9;
@@ -20,7 +18,7 @@ void setup() {
 }
 
 void loop() {
-  drive(100,100); //drive forwards
+  drive(100,-100); // +A and -B is forward
 }
 
 void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM){
@@ -32,8 +30,8 @@ void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM){
     digitalWrite(pin_IN1, LOW);
     digitalWrite(pin_IN2, HIGH);
   }
-  spd = abs(spd)
-  spd = constraint(spd, 0, 255);
+  spd = abs(spd);
+  spd = constrain(spd, 0, 255);
   analogWrite(pin_PWM, spd);
 }
 
