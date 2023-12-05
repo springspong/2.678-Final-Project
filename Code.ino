@@ -1,5 +1,7 @@
 #include <QTRSensors.h>
+#include <QuickPID.h>
 
+//motor pins and speeds
 const int PWMA = 11;
 const int AIN2 = 10;
 const int AIN1 = 9;
@@ -7,15 +9,28 @@ const int STDBY = 8;
 const int BIN1 = 7; 
 const int BIN2 = 6;
 const int PWMB = 5;
+int speedL = 200;
+int speedR = -200;
+
+//sensor stuff
 const int s0 = 7; //left
 const int s1 = 6; //middle
 const int s2 = 5; //right
 QTRSensors qtr;
 uint16_t sensorValues[3];
-int speedL = 200;
-int speedR = -200;
+float position;
+
+//for PID
+float Kp = 0;
+float Ki = 0;
+float Kd = 0;
+float error; //PID input
+float steeringVal; //PID output
+float setPoint; //goal position error is 0, directly centered on lines
+QuickPID myPID(&error, &steeringVal, &setPoint);
 
 void setup() {
+  //pins
   pinMode(PWMA, OUTPUT);
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
@@ -28,56 +43,56 @@ void setup() {
   analogWrite(s1, INPUT);
   analogWrite(s2, INPUT);
 
+  //sensor setup
   qtr.setTypeAnalog();
   qtr.setSensorPins((const uint8_t[]){s0,s1,s2},3);
   delay(500);
-
-  //Arduino LED
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT); //Arduino LED
   digitalWrite(LED_BUILTIN, HIGH);
-  
-  //callibrate
+  //callibrating sensors
   for (uint16_t i=0; i<400; i++){
     qtr.calibrate();
   }
   digitalWrite(LED_BUILTIN, LOW); //indicates done with callibration
+  // //print callibration minimum value
+  // Serial.begin(9600);
+  // for (uint8_t i = 0; i < 3; i++){
+  //   Serial.print(qtr.calibrationOn.minimum[i]);
+  //   Serial.print(' ');
+  // }
+  // Serial.println();
+  // //print callibration max values
+  // for (uint8_t i = 0; i < 3; i++){
+  //   Serial.print(qtr.calibrationOn.maximum[i]);
+  //   Serial.print(' ');
+  // }
 
-  //print callibration minimum value
-  Serial.begin(9600);
-  for (uint8_t i = 0; i < 3; i++){
-    Serial.print(qtr.calibrationOn.minimum[i]);
-    Serial.print(' ');
-  }
-  Serial.println();
+  //PID stuff
+  error = 1000 - qtr.readLineBlack(sensorValues);
+  setPoint = 0;
+  myPID.SetTunings(Kp, Ki, Kd);
+  myPID.SetMode(myPID.Control::automatic);
 
-  //print callibration max values
-  for (uint8_t i = 0; i < 3; i++){
-    Serial.print(qtr.calibrationOn.maximum[i]);
-    Serial.print(' ');
-  }
   Serial.println();
   delay(1000);
 }
 
 void loop() {
   // read calibrated sensor values and obtain a measure of the line position
-  // from 0 to 5000 (for a white line, use readLineWhite() instead)
-  uint16_t position = qtr.readLineBlack(sensorValues);
-  // int left = sensorValues[0];
-  // int middle = sensorValues[1];
-  // int right = sensorValues[2];
-  
-  // sensor values as numbers from 0 to 1000, where 0 means maximum
-  // reflectance and 1000 means minimum reflectance, followed by the line
-  // position
-  // for (uint8_t i = 0; i < 3; i++)
-  // {
-  //   Serial.print(sensorValues[i]);
-  //   Serial.print('\t');
-  // }
-  Serial.println(position);
-
-  delay(250);
+  error = 1000 - qtr.readLineBlack(sensorValues);;
+  //if robot leaves the line entirely
+  while(sensorValues[0]<=980 && sensorValues[1]<=980 && sensorValues[2]<=980){ //not sure about this
+    if(position==0){
+      drive(-200,200); //turn left if line disappeared to the left
+    }
+    else{
+      drive(200,200); //turn right
+    }
+    error = 1000 - qtr.readLineBlack(sensorValues);
+  }
+  myPID.Compute();
+  drive(200-steeringVal, -200-steeringVal); //not sure abt adding/subtracting here
+  delay(250); //prob make shorter
 }
 
 void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM){
