@@ -92,7 +92,7 @@ void loop() {
   }
   myPID.Compute();
   drive(200-steeringVal, -200-steeringVal); //not sure abt adding/subtracting here
-  delay(250); //prob make shorter
+  //delay(250); //prob make shorter
 }
 
 void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM){
