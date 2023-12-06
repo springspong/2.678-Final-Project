@@ -9,7 +9,7 @@ const int STDBY = 8;
 const int BIN1 = 7; 
 const int BIN2 = 6;
 const int PWMB = 5;
-int speedL = 200;
+int speedL = -200;
 int speedR = -200;
 
 //sensor stuff
@@ -18,16 +18,19 @@ const int s1 = 6; //middle
 const int s2 = 5; //right
 QTRSensors qtr;
 uint16_t sensorValues[3];
-float position;
 
 //for PID
-float Kp = 0;
-float Ki = 0;
-float Kd = 0;
-float error; //PID input
+float Kp = 4; //low single digits
+float Ki = 0; // <0.1
+float Kd = 0; //low single digits
+float position; //PID input
 float steeringVal; //PID output
 float setPoint; //goal position error is 0, directly centered on lines
-QuickPID myPID(&error, &steeringVal, &setPoint);
+QuickPID myPID(&position, &steeringVal, &setPoint, Kp, Ki, Kd,  
+               myPID.pMode::pOnError,                   /* pOnError, pOnMeas, pOnErrorMeas */
+               myPID.dMode::dOnMeas,                    /* dOnError, dOnMeas */
+               myPID.iAwMode::iAwCondition,             /* iAwCondition, iAwClamp, iAwOff */
+               myPID.Action::direct);
 
 void setup() {
   //pins
@@ -68,8 +71,8 @@ void setup() {
   // }
 
   //PID stuff
-  error = 1000 - qtr.readLineBlack(sensorValues);
-  setPoint = 0;
+  position = qtr.readLineBlack(sensorValues);
+  setPoint = 1000;
   myPID.SetTunings(Kp, Ki, Kd);
   myPID.SetMode(myPID.Control::automatic);
 
@@ -79,19 +82,19 @@ void setup() {
 
 void loop() {
   // read calibrated sensor values and obtain a measure of the line position
-  error = 1000 - qtr.readLineBlack(sensorValues);;
+  position = qtr.readLineBlack(sensorValues);
   //if robot leaves the line entirely
-  while(sensorValues[0]<=980 && sensorValues[1]<=980 && sensorValues[2]<=980){ //not sure about this
-    if(position==0){
-      drive(-200,200); //turn left if line disappeared to the left
-    }
-    else{
-      drive(200,200); //turn right
-    }
-    error = 1000 - qtr.readLineBlack(sensorValues);
-  }
+  // while(sensorValues[0]<=700 && sensorValues[1]<=700 && sensorValues[2]<=700){ //not sure about this
+  //   if(position==0){
+  //     drive(200,-200); //turn left if line disappeared to the left
+  //   }
+  //   else{
+  //     drive(-200,+200); //turn right
+  //   }
+  //   position = qtr.readLineBlack(sensorValues);
+  // }
   myPID.Compute();
-  drive(200-steeringVal, -200-steeringVal); //not sure abt adding/subtracting here
+  drive(speedL - steeringVal, speedR - steeringVal); //not sure abt adding/subtracting here
   //delay(250); //prob make shorter
 }
 
