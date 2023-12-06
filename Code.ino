@@ -94,7 +94,7 @@ void loop() {
   //   position = qtr.readLineBlack(sensorValues);
   // }
   myPID.Compute();
-  drive(speedL - steeringVal, speedR - steeringVal); //not sure abt adding/subtracting here
+  drive(speedL - steeringVal, speedR + steeringVal); //not sure abt adding/subtracting here
   //delay(250); //prob make shorter
 }
 
