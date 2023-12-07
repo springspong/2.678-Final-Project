@@ -105,14 +105,16 @@ void robot_control(){
   position = qtr.readLineBlack(sensorValues);
   error = 1000 - position;
   while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){ // A case when the line follower leaves the line
-    if(previousError>0){       //Turn left if the line was to the left before
+    if(previousError > 0){       //Turn left if the line was to the left before
       drive(speed,-speed);
     }
+    
     else{
       drive(-speed,speed); // Else turn right
     }
     position = qtr.readLineBlack(sensorValues);
   }
+  // at around 23 seconds, interrupt and change loop. do delay between readings and have it go straight as long as it sees something (position is -400 and 400)
   
   PID_Linefollow(error);
 }
