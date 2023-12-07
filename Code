@@ -1,0 +1,135 @@
+#include <QTRSensors.h>
+#include <QuickPID.h>
+
+//motor pins
+const int PWMA = 11;
+const int AIN2 = 10;
+const int AIN1 = 9;
+const int STDBY = 8;
+const int BIN1 = 7;
+const int BIN2 = 6;
+const int PWMB = 5;
+
+//sensor stuff
+const int s0 = 7;  //left
+const int s1 = 6;  //middle
+const int s2 = 5;  //right
+QTRSensors qtr;
+uint16_t sensorValues[3];
+
+//for PID
+float Kp = 4;       //low single digits
+float Ki = 0;       // <0.1
+float Kd = 0;       //low single digits
+uint8_t multiP = 1;
+uint8_t multiI  = 1;
+uint8_t multiD = 1;
+uint8_t Kpfinal;
+uint8_t Kifinal;
+uint8_t Kdfinal;
+float Pvalue;
+float Ivalue;
+float Dvalue;
+
+boolean onoff = true;
+
+uint16_t position;
+int P, D, I, previousError, PIDvalue, error;
+int lsp, rsp;
+int lfspeed = -100;
+
+
+void setup() {
+  //pins
+  pinMode(PWMA, OUTPUT);
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(STDBY, OUTPUT);
+  digitalWrite(STDBY, HIGH);
+  analogWrite(s0, INPUT);
+  analogWrite(s1, INPUT);
+  analogWrite(s2, INPUT);
+
+  //sensor setup
+  qtr.setTypeAnalog();
+  qtr.setSensorPins((const uint8_t[]){ s0, s1, s2 }, 3);
+  delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);  //Arduino LED
+  digitalWrite(LED_BUILTIN, HIGH);
+  //callibrating sensors
+  for (uint16_t i = 0; i < 400; i++) {
+    qtr.calibrate();
+  }
+  digitalWrite(LED_BUILTIN, LOW);  //indicates done with callibration
+  //print callibration minimum value
+  Serial.begin(9600);
+  for (uint8_t i = 0; i < 3; i++) {
+    Serial.print(qtr.calibrationOn.minimum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+  delay(1000);
+}
+
+
+void loop() {
+  drive(lfspeed,lfspeed);
+//  if (onoff == true){
+//     robot_control();
+//   }
+}
+
+void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM) {
+  if (spd < 0) {  //go one way
+    digitalWrite(pin_IN1, HIGH);
+    digitalWrite(pin_IN2, LOW);
+  } else {  //go the other way
+    digitalWrite(pin_IN1, LOW);
+    digitalWrite(pin_IN2, HIGH);
+  }
+  spd = abs(spd);
+  spd = constrain(spd, 0, 255);
+  analogWrite(pin_PWM, spd);
+}
+
+void drive(int speedL, int speedR) {
+  motorWrite(speedL, AIN1, AIN2, PWMA);
+  motorWrite(speedR, BIN1, BIN2, PWMB);
+}
+
+void robot_control(){
+  // read calibrated sensor values and obtain a measure of the line position
+  // from 0 to 4000 (for a white line, use readLineWhite() instead)
+  position = qtr.readLineBlack(sensorValues);
+  error = 2000 - position;
+  while(sensorValues[0]>=980 && sensorValues[1]>=980 && sensorValues[2]>=980 && sensorValues[3]>=980 && sensorValues[4]>=980){ // A case when the line follower leaves the line
+    if(previousError>0){       //Turn left if the line was to the left before
+      drive(-230,230);
+    }
+    else{
+      drive(230,-230); // Else turn right
+    }
+    position = qtr.readLineBlack(sensorValues);
+  }
+  
+  PID_Linefollow(error);
+}
+
+void PID_Linefollow(int error){
+    P = error;
+    I = I + error;
+    D = error - previousError;
+    
+    Pvalue = (Kp/pow(10,multiP))*P;
+    Ivalue = (Ki/pow(10,multiI))*I;
+    Dvalue = (Kd/pow(10,multiD))*D; 
+
+    float PIDvalue = Pvalue + Ivalue + Dvalue;
+    previousError = error;
+    lsp = lfspeed + PIDvalue;
+    rsp = lfspeed - PIDvalue;
+    drive(lsp,rsp);
+}
