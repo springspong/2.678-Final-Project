@@ -18,9 +18,9 @@ QTRSensors qtr;
 uint16_t sensorValues[3];
 
 //for PID
-float Kp = 4;       //low single digits
-float Ki = 0;       // <0.1
-float Kd = 0;       //low single digits
+float Kp = 0.7;       //low single digits
+float Ki = 0.05;       // <0.1
+float Kd = 1;       //low single digits
 uint8_t multiP = 1;
 uint8_t multiI  = 1;
 uint8_t multiD = 1;
@@ -36,7 +36,7 @@ boolean onoff = true;
 uint16_t position;
 int P, D, I, previousError, PIDvalue, error;
 int lsp, rsp;
-int lfspeed = -100;
+int speed = -225;
 
 
 void setup() {
@@ -76,10 +76,9 @@ void setup() {
 
 
 void loop() {
-  drive(lfspeed,lfspeed);
-//  if (onoff == true){
-//     robot_control();
-//   }
+ if (onoff == true){
+    robot_control();
+  }
 }
 
 void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM) {
@@ -104,13 +103,13 @@ void robot_control(){
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 4000 (for a white line, use readLineWhite() instead)
   position = qtr.readLineBlack(sensorValues);
-  error = 2000 - position;
-  while(sensorValues[0]>=980 && sensorValues[1]>=980 && sensorValues[2]>=980 && sensorValues[3]>=980 && sensorValues[4]>=980){ // A case when the line follower leaves the line
+  error = 1000 - position;
+  while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){ // A case when the line follower leaves the line
     if(previousError>0){       //Turn left if the line was to the left before
-      drive(-230,230);
+      drive(speed,-speed);
     }
     else{
-      drive(230,-230); // Else turn right
+      drive(-speed,speed); // Else turn right
     }
     position = qtr.readLineBlack(sensorValues);
   }
@@ -129,7 +128,7 @@ void PID_Linefollow(int error){
 
     float PIDvalue = Pvalue + Ivalue + Dvalue;
     previousError = error;
-    lsp = lfspeed + PIDvalue;
-    rsp = lfspeed - PIDvalue;
+    lsp = speed + PIDvalue;
+    rsp = speed - PIDvalue;
     drive(lsp,rsp);
 }
