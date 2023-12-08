@@ -83,7 +83,7 @@ void setup() {
 
 
 void loop() {
-  if ((timer.read() >= straight1) && timer.read() <= (straight1 + 500)){ //first straight
+  if ((timer.read() >= straight1) && timer.read() <= (straight1 + 500)){ //approximately time it hits first straight
     timer.pause();
     digitalWrite(LED_BUILTIN, HIGH);
     calibrateStraight();
@@ -100,39 +100,25 @@ void loop() {
     }
     timer.resume();
   }
-  else if ((timer.read() >= (straight1 + straight2)) && (timer.read() <= (straight1 + straight2 + 500))){ //second straight, add time from end of previous to next straight
+  else if ((timer.read() >= (straight1 + straight2)) && (timer.read() <= (straight1 + straight2 + 500))){ //approximately second straight
     timer.pause();
     digitalWrite(LED_BUILTIN, HIGH);
     calibrateStraight();
     digitalWrite(LED_BUILTIN, LOW);
     drive(-255,-255);
-    delay(1000); //to get past initial solid stretch, smaller than before
+    delay(500); //to get past initial solid stretch, smaller than before
     while (goStraight){
       position = qtr.readLineBlack(sensorValues);
       if (sensorValues[0]>=600 && sensorValues[1]>=600 && sensorValues[2]>=600){ //back on solid line, return to PID
         break;
       }
       drive(-255,-255);
-      delay(1000); //smaller than before
+      delay(500); //smaller than before
     }
     timer.resume();
   } 
   else{
     robot_control();
-  }
-}
-
-void calibrateStraight(){
-  // this is the code where the robot rocks forwards and backwards until it is 
-  // sure that it is truly straight. Truly straight is when position is 1000. 
-  // 2000 is off in the right direction, 0 is off in the left direction
-  // **/
-  position = qtr.readLineBlack(sensorValues);
-  error = 1000 - position;
-  while ((position > 1100) || (position < 900)) { //not straight
-    //re-add stuff for turning
-    PID(error, -50); //PID control rlly slow speed
-    position = qtr.readLineBlack(sensorValues);
   }
 }
 
@@ -154,6 +140,27 @@ void drive(int speedL, int speedR) {
   motorWrite(speedR, BIN1, BIN2, PWMB);
 }
 
+void calibrateStraight(){
+  // this is the code where the robot rocks forwards and backwards until it is 
+  // sure that it is truly straight. Truly straight is when position is 1000. 
+  // 2000 is off in the right direction, 0 is off in the left direction
+  // **/
+  position = qtr.readLineBlack(sensorValues);
+  error = 1000 - position;
+  while ((position > 1100) || (position < 900)) { //not straight
+    while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){ // A case when the line follower leaves the line
+      if(previousError > 0){       //Turn left if the line was to the left before
+        drive(-50,50);
+      }
+      else{
+        drive(50,-50); // Else turn right
+    }
+    position = qtr.readLineBlack(sensorValues);
+  }
+    PID(error, -50); //PID control rlly slow speed
+  }
+}
+
 void robot_control(){
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 4000 (for a white line, use readLineWhite() instead)
@@ -169,7 +176,6 @@ void robot_control(){
     }
     position = qtr.readLineBlack(sensorValues);
   }
-  // at around 23 seconds, interrupt and change loop. do delay between readings and have it go straight as long as it sees something (position is -400 and 400)
   
   PID(error, speed);
 }
