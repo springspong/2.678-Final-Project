@@ -34,9 +34,10 @@ float Dvalue;
 
 //timer stuff
 Timer timer;
+Timer timer2;
+boolean gap = false;
 int straight1 = 3000; //time to first straight
-int straight2 = 8000; //time from end of first straight to the next straight w gaps
-bool goStraight = true;
+int straight2 = 7000; //time from end of first straight to the next straight w gaps
 
 //PID and motor stuff
 uint16_t position;
@@ -83,43 +84,13 @@ void setup() {
 
 
 void loop() {
-  if ((timer.read() >= straight1) && timer.read() <= (straight1 + 500)){ //approximately time it hits first straight
-    timer.pause();
-    digitalWrite(LED_BUILTIN, HIGH);
-    calibrateStraight();
-    digitalWrite(LED_BUILTIN, LOW);
-    drive(-255,-255);
-    delay(1000); //to get past initial solid stretch
-    while (goStraight){
-      position = qtr.readLineBlack(sensorValues);
-      if (sensorValues[0]>=600 && sensorValues[1]>=600 && sensorValues[2]>=600){ //back on solid line, return to PID
-        break;
-      }
-      drive(-255,-255);
-      delay(1000);
-    }
-    timer.resume();
+  if (timer.read()>straight1 && timer.read()<(straight1+straight2)){ //change
+    gap = true;
   }
-  else if ((timer.read() >= (straight1 + straight2)) && (timer.read() <= (straight1 + straight2 + 500))){ //approximately second straight
-    timer.pause();
-    digitalWrite(LED_BUILTIN, HIGH);
-    calibrateStraight();
-    digitalWrite(LED_BUILTIN, LOW);
-    drive(-255,-255);
-    delay(500); //to get past initial solid stretch, smaller than before
-    while (goStraight){
-      position = qtr.readLineBlack(sensorValues);
-      if (sensorValues[0]>=600 && sensorValues[1]>=600 && sensorValues[2]>=600){ //back on solid line, return to PID
-        break;
-      }
-      drive(-255,-255);
-      delay(500); //smaller than before
-    }
-    timer.resume();
-  } 
-  else{
-    robot_control();
+  else if (timer.read()>(straight1+straight2)){
+    gap = false;
   }
+  robot_control();
 }
 
 void motorWrite(int spd, int pin_IN1, int pin_IN2, int pin_PWM) {
@@ -140,39 +111,65 @@ void drive(int speedL, int speedR) {
   motorWrite(speedR, BIN1, BIN2, PWMB);
 }
 
-void calibrateStraight(){
-  // this is the code where the robot rocks forwards and backwards until it is 
-  // sure that it is truly straight. Truly straight is when position is 1000. 
-  // 2000 is off in the right direction, 0 is off in the left direction
-  // **/
-  position = qtr.readLineBlack(sensorValues);
-  error = 1000 - position;
-  while ((position > 1100) || (position < 900)) { //not straight
-    while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){ // A case when the line follower leaves the line
-      if(previousError > 0){       //Turn left if the line was to the left before
-        drive(-50,50);
-      }
-      else{
-        drive(50,-50); // Else turn right
-    }
-    position = qtr.readLineBlack(sensorValues);
-  }
-    PID(error, -50); //PID control rlly slow speed
-  }
-}
-
 void robot_control(){
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 4000 (for a white line, use readLineWhite() instead)
   position = qtr.readLineBlack(sensorValues);
   error = 1000 - position;
   while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){ // A case when the line follower leaves the line
-    if(previousError > 0){       //Turn left if the line was to the left before
-      drive(speed,-speed);
+    if(previousError > 0){ //if line was to left before
+      timer2.start();
+      digitalWrite(LED_BUILTIN, HIGH);
+      while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){
+        if (timer2.read()<450){
+          drive(speed, -speed); //turn left
+          position = qtr.readLineBlack(sensorValues);
+        }
+        else{ //turned for too long
+          digitalWrite(LED_BUILTIN, LOW);
+          drive(-speed, speed);
+          delay(400);
+          drive(0,0);
+          position = qtr.readLineBlack(sensorValues);
+          while(gap==false && sensorValues[1]<=300 && sensorValues[2]<=300){
+            drive(100,-100);
+            position = qtr.readLineBlack(sensorValues);
+          }
+          timer2.stop();
+          drive(-255,-255);
+          delay(1250);
+          position = qtr.readLineBlack(sensorValues);
+          break;
+        }
+      }
+      digitalWrite(LED_BUILTIN, LOW);
     }
-    
     else{
-      drive(-speed,speed); // Else turn right
+      timer2.start();
+      digitalWrite(LED_BUILTIN, HIGH);
+      while(sensorValues[0]<=600 && sensorValues[1]<=600 && sensorValues[2]<=600){
+        if (timer2.read()<450){
+          drive(-speed, speed); //turn right
+          position = qtr.readLineBlack(sensorValues);
+        }
+        else{ //turned for too long
+          digitalWrite(LED_BUILTIN, LOW);
+          drive(speed, -speed);
+          delay(400);
+          drive(0,0);
+          position = qtr.readLineBlack(sensorValues);
+          while(gap==false && sensorValues[0]<=300 && sensorValues[1]<=300){
+            drive(-100,100);
+            position = qtr.readLineBlack(sensorValues);
+          }
+          timer2.stop();
+          drive(-255,-255);
+          delay(1250);
+          position = qtr.readLineBlack(sensorValues);
+          break;
+        }
+      }
+      digitalWrite(LED_BUILTIN, LOW);
     }
     position = qtr.readLineBlack(sensorValues);
   }
